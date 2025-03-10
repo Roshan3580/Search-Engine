@@ -17,8 +17,6 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 nltk.download('punkt_tab')
 
-
-
 # Get dataset directory
 dataset_dir = input("Enter the dataset directory: ").strip()
 output_index_file = "inverted_index.json"
@@ -30,7 +28,6 @@ inverted_index = defaultdict(lambda: defaultdict(int))  # term -> {doc_id -> ter
 document_metadata = {}  # Maps filenames to their URLs
 document_count = 0
 documents = {}
-
 
 # Function to extract text and metadata from JSON
 def extract_text_and_metadata(json_content, filename):
@@ -50,11 +47,9 @@ def extract_text_and_metadata(json_content, filename):
     document_metadata[filename] = url  # Store the URL
     return text.strip()
 
-
 # Convert defaultdict to dict
 def convert_defaultdict_to_dict(d):
     return {k: convert_defaultdict_to_dict(v) for k, v in d.items()} if isinstance(d, defaultdict) else d
-
 
 # Check if dataset directory exists
 if not os.path.exists(dataset_dir):
