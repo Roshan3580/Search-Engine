@@ -6,9 +6,10 @@ from bs4 import BeautifulSoup
 import warnings
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
-from collections import defaultdict
+from collections import defaultdict, Counter
 import nltk
 import ssl
+import hashlib
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -16,6 +17,8 @@ warnings.filterwarnings("ignore")
 ssl._create_default_https_context = ssl._create_unverified_context
 
 nltk.download('punkt_tab')
+
+document_hashes = {}  # Stores hash -> filename
 
 # Get dataset directory
 dataset_dir = input("Enter the dataset directory: ").strip()
@@ -28,6 +31,11 @@ inverted_index = defaultdict(lambda: defaultdict(int))  # term -> {doc_id -> ter
 document_metadata = {}  # Maps filenames to their URLs
 document_count = 0
 documents = {}
+link_graph = defaultdict(set)
+
+def compute_hash(text):
+    """Computes SHA-256 hash for deduplication."""
+    return hashlib.sha256(text.encode()).hexdigest()
 
 # Function to extract text and metadata from JSON
 def extract_text_and_metadata(json_content, filename):
@@ -43,13 +51,28 @@ def extract_text_and_metadata(json_content, filename):
         body_text = soup.get_text()
 
         text += important_text + " " + body_text
+        extract_links(soup, filename)
+    doc_hash = compute_hash(text)
+    if doc_hash in document_hashes:
+        print(f"Duplicate detected: {filename} is the same as {document_hashes[doc_hash]}")
+        return None  # Skip indexing duplicate
 
+    document_hashes[doc_hash] = filename
     document_metadata[filename] = url  # Store the URL
+    #print(f"Indexed {filename}, Hash: {doc_hash}")
     return text.strip()
+
+
+def extract_links(soup, filename):
+    """Extracts links and updates link graph."""
+    for link in soup.find_all("a", href=True):
+        link_graph[filename].add(link["href"])
+
 
 # Convert defaultdict to dict
 def convert_defaultdict_to_dict(d):
     return {k: convert_defaultdict_to_dict(v) for k, v in d.items()} if isinstance(d, defaultdict) else d
+
 
 # Check if dataset directory exists
 if not os.path.exists(dataset_dir):
@@ -87,6 +110,56 @@ with open(output_index_file, "w", encoding="utf-8") as index_file:
 
 with open(metadata_file, "w", encoding="utf-8") as meta_file:
     json.dump(document_metadata, meta_file, indent=4)
+
+bigram_index = defaultdict(lambda: defaultdict(int))
+trigram_index = defaultdict(lambda: defaultdict(int))
+
+
+def generate_ngrams(tokens, n):
+    return [" ".join(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
+
+
+for root, _, files in os.walk(dataset_dir):
+    for filename in files:
+        if filename.endswith(".json"):
+            file_path = os.path.join(root, filename)
+            with open(file_path, "r", encoding="utf-8") as file:
+                json_content = json.load(file)
+                text = extract_text_and_metadata(json_content, filename)
+
+                if text is None:
+                    continue
+
+                tokens = word_tokenize(text.lower())
+                filtered_tokens = [stemmer.stem(token) for token in tokens if re.match(r"^[a-zA-Z0-9]+$", token)]
+
+                # Compute n-grams
+                bigrams = generate_ngrams(filtered_tokens, 2)
+                trigrams = generate_ngrams(filtered_tokens, 3)
+
+                # Index n-grams
+                for ngram in bigrams:
+                    bigram_index[ngram][filename] += 1
+                for ngram in trigrams:
+                    trigram_index[ngram][filename] += 1
+
+positional_index = defaultdict(lambda: defaultdict(list))
+
+for i, token in enumerate(filtered_tokens):
+    inverted_index[token][filename] += 1
+    positional_index[token][filename].append(i)
+
+anchor_index = defaultdict(lambda: defaultdict(int))
+
+def extract_anchors(soup, filename):
+    for link in soup.find_all("a", href=True):
+        anchor_text = link.get_text()
+        if anchor_text:
+            for word in word_tokenize(anchor_text.lower()):
+                word = stemmer.stem(word)
+                anchor_index[word][filename] += 1
+
+    extract_anchors(soup, filename)
 
 print("\nSummary Report:")
 print(f"Indexed {document_count} documents.")
