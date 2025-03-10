@@ -11,55 +11,51 @@ import nltk
 import ssl
 import hashlib
 
-# Suppress warnings
 warnings.filterwarnings("ignore")
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
 nltk.download('punkt_tab')
 
-document_hashes = {}  # Stores hash -> filename
+document_hashes = {}
 
-# Get dataset directory
-dataset_dir = input("Enter the dataset directory: ").strip()
-output_index_file = "inverted_index.json"
-metadata_file = "doc_metadata.json"
-
-# Initialize structures
 stemmer = PorterStemmer()
-inverted_index = defaultdict(lambda: defaultdict(int))  # term -> {doc_id -> term_freq}
-document_metadata = {}  # Maps filenames to their URLs
-document_count = 0
+inverted_index = defaultdict(lambda: defaultdict(int))
+document_metadata = {}
 documents = {}
 link_graph = defaultdict(set)
+bigram_index = defaultdict(lambda: defaultdict(int))
+trigram_index = defaultdict(lambda: defaultdict(int))
+positional_index = defaultdict(lambda: defaultdict(list))
+anchor_index = defaultdict(lambda: defaultdict(int))
+
 
 def compute_hash(text):
     """Computes SHA-256 hash for deduplication."""
     return hashlib.sha256(text.encode()).hexdigest()
 
-# Function to extract text and metadata from JSON
+
 def extract_text_and_metadata(json_content, filename):
+    """Extracts text, metadata, and links from a document."""
     text = ""
     url = json_content.get("url", "UNKNOWN")
 
-    # Parse HTML content from 'content' key
     if "content" in json_content:
         soup = BeautifulSoup(json_content["content"], "html.parser")
 
-        # Extract important text
         important_text = " ".join([tag.get_text() for tag in soup.find_all(["title", "h1", "h2", "h3", "b", "strong"])])
         body_text = soup.get_text()
 
         text += important_text + " " + body_text
         extract_links(soup, filename)
+
     doc_hash = compute_hash(text)
     if doc_hash in document_hashes:
-        print(f"Duplicate detected: {filename} is the same as {document_hashes[doc_hash]}")
-        return None  # Skip indexing duplicate
+        return None
 
     document_hashes[doc_hash] = filename
-    document_metadata[filename] = url  # Store the URL
-    #print(f"Indexed {filename}, Hash: {doc_hash}")
+    document_metadata[filename] = url
+
     return text.strip()
 
 
@@ -69,99 +65,56 @@ def extract_links(soup, filename):
         link_graph[filename].add(link["href"])
 
 
-# Convert defaultdict to dict
-def convert_defaultdict_to_dict(d):
-    return {k: convert_defaultdict_to_dict(v) for k, v in d.items()} if isinstance(d, defaultdict) else d
-
-
-# Check if dataset directory exists
-if not os.path.exists(dataset_dir):
-    print(f"Directory '{dataset_dir}' does not exist.")
-    exit(1)
-
-# Process JSON files
-for root, _, files in os.walk(dataset_dir):
-    for filename in files:
-        if filename.endswith(".json"):
-            document_count += 1
-            file_path = os.path.join(root, filename)
-
-            with open(file_path, "r", encoding="utf-8") as file:
-                json_content = json.load(file)
-                text = extract_text_and_metadata(json_content, filename)
-
-                # Tokenization & Stemming
-                tokens = word_tokenize(text.lower())
-                filtered_tokens = [stemmer.stem(token) for token in tokens if re.match(r"^[a-zA-Z0-9]+$", token)]
-
-                # Compute term frequencies
-                term_frequencies = collections.Counter(filtered_tokens)
-
-                # Store document details
-                documents[filename] = len(filtered_tokens)
-                for term, freq in term_frequencies.items():
-                    inverted_index[term][filename] = freq
-
-# Save index and metadata
-with open(output_index_file, "w", encoding="utf-8") as index_file:
-    json.dump(
-        {"index": convert_defaultdict_to_dict(inverted_index), "documents": documents, "doc_count": document_count},
-        index_file, indent=4)
-
-with open(metadata_file, "w", encoding="utf-8") as meta_file:
-    json.dump(document_metadata, meta_file, indent=4)
-
-bigram_index = defaultdict(lambda: defaultdict(int))
-trigram_index = defaultdict(lambda: defaultdict(int))
-
-
 def generate_ngrams(tokens, n):
     return [" ".join(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
 
+if __name__ == "__main__":
+    dataset_dir = input("Enter the dataset directory: ").strip()
 
-for root, _, files in os.walk(dataset_dir):
-    for filename in files:
-        if filename.endswith(".json"):
-            file_path = os.path.join(root, filename)
-            with open(file_path, "r", encoding="utf-8") as file:
-                json_content = json.load(file)
-                text = extract_text_and_metadata(json_content, filename)
+    if not os.path.exists(dataset_dir):
+        print(f"Directory '{dataset_dir}' does not exist.")
+        exit(1)
 
-                if text is None:
-                    continue
+    for root, _, files in os.walk(dataset_dir):
+        for filename in files:
+            if filename.endswith(".json"):
+                file_path = os.path.join(root, filename)
 
-                tokens = word_tokenize(text.lower())
-                filtered_tokens = [stemmer.stem(token) for token in tokens if re.match(r"^[a-zA-Z0-9]+$", token)]
+                with open(file_path, "r", encoding="utf-8") as file:
+                    json_content = json.load(file)
+                    text = extract_text_and_metadata(json_content, filename)
 
-                # Compute n-grams
-                bigrams = generate_ngrams(filtered_tokens, 2)
-                trigrams = generate_ngrams(filtered_tokens, 3)
+                    if text is None:
+                        continue
 
-                # Index n-grams
-                for ngram in bigrams:
-                    bigram_index[ngram][filename] += 1
-                for ngram in trigrams:
-                    trigram_index[ngram][filename] += 1
+                    tokens = word_tokenize(text.lower())
+                    filtered_tokens = [stemmer.stem(token) for token in tokens if re.match(r"^[a-zA-Z0-9]+$", token)]
 
-positional_index = defaultdict(lambda: defaultdict(list))
+                    term_frequencies = collections.Counter(filtered_tokens)
 
-for i, token in enumerate(filtered_tokens):
-    inverted_index[token][filename] += 1
-    positional_index[token][filename].append(i)
+                    documents[filename] = len(filtered_tokens)
+                    for term, freq in term_frequencies.items():
+                        inverted_index[term][filename] = freq
 
-anchor_index = defaultdict(lambda: defaultdict(int))
+                    bigrams = generate_ngrams(filtered_tokens, 2)
+                    trigrams = generate_ngrams(filtered_tokens, 3)
 
-def extract_anchors(soup, filename):
-    for link in soup.find_all("a", href=True):
-        anchor_text = link.get_text()
-        if anchor_text:
-            for word in word_tokenize(anchor_text.lower()):
-                word = stemmer.stem(word)
-                anchor_index[word][filename] += 1
+                    for ngram in bigrams:
+                        bigram_index[ngram][filename] += 1
+                    for ngram in trigrams:
+                        trigram_index[ngram][filename] += 1
 
-    extract_anchors(soup, filename)
+                    for i, token in enumerate(filtered_tokens):
+                        inverted_index[token][filename] += 1
+                        positional_index[token][filename].append(i)
 
-print("\nSummary Report:")
-print(f"Indexed {document_count} documents.")
-print(f"Total unique tokens: {len(inverted_index)}")
-print(f"Index size: {os.path.getsize(output_index_file) / 1024:.2f} KB")
+    with open("inverted_index.json", "w", encoding="utf-8") as index_file:
+        json.dump({"index": inverted_index, "documents": documents}, index_file, indent=4)
+
+    with open("doc_metadata.json", "w", encoding="utf-8") as meta_file:
+        json.dump(document_metadata, meta_file, indent=4)
+
+    print("\nSummary Report:")
+    print(f"Indexed {len(documents)} documents.")
+    print(f"Total unique tokens: {len(inverted_index)}")
+    print(f"Index size: {os.path.getsize('inverted_index.json') / 1024:.2f} KB")
