@@ -26,6 +26,8 @@ pip install nltk
    python search.py
    ```
    This will launch an interactive prompt where you can enter queries.
+   It will also ask you for the directory path to confirm the database that we are searching through,
+   just enter the same directory path as the one that you entered for indexer.
 
 ## How to Perform a Simple Query
 1. After starting `search.py`, enter a query term or phrase.
