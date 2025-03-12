@@ -25,7 +25,6 @@ print(f"Metadata loading took {time.time() - start_time:.4f} seconds")
 
 def compute_pagerank(damping=0.85, max_iter=100):
     """Computes PageRank using power iteration."""
-    start_time = time.time()
     N = len(link_graph)
     pagerank = {doc: 1 / N for doc in link_graph}
 
@@ -37,23 +36,18 @@ def compute_pagerank(damping=0.85, max_iter=100):
                 doc in link_graph[incoming]
             )
         pagerank = new_pagerank
-
-    print(f"PageRank computation took {time.time() - start_time:.4f} seconds")
     return pagerank
 
 def boolean_and_search(query_terms):
     """ Returns document IDs that contain all query terms. """
     if not query_terms:
         return set()
-    start_time = time.time()
     postings = [set(inverted_index.get(term, {}).keys()) for term in query_terms]
     result = set.intersection(*postings) if postings else set()
-    print(f"Boolean AND search took {time.time() - start_time:.4f} seconds")
     return result
 
 def compute_tf_idf(query_terms, relevant_docs, pagerank_scores):
     """ Computes TF-IDF scores and integrates PageRank. """
-    start_time = time.time()
     doc_scores = {}
     for term in query_terms:
         if term in inverted_index:
@@ -64,7 +58,6 @@ def compute_tf_idf(query_terms, relevant_docs, pagerank_scores):
                 doc_scores[doc] = doc_scores.get(doc, 0) + (tf * idf)
     for doc in doc_scores:
         doc_scores[doc] *= pagerank_scores.get(doc, 1)
-    print(f"TF-IDF computation took {time.time() - start_time:.4f} seconds")
     return sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
 
 def search():
