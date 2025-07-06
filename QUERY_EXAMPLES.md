@@ -1,4 +1,4 @@
-test_queries = [
+sample_queries = [
     "machine learning",
     "artificial intelligence",
     "data science",
@@ -21,7 +21,7 @@ test_queries = [
     "renewable energy sources"
 ]
 
-GOOD QUERIES:
+EFFECTIVE QUERIES:
 ----------------------------------------------------
    QUERY 1: "machine learning"
    QUERY 2: "artificial intelligence"
@@ -42,36 +42,34 @@ GOOD QUERIES:
    QUERY 17: "environmental protection agency regulations"
    QUERY 18: "renewable energy sources"
 
-BAD QUERIES:
+QUERIES NEEDING REFINEMENT:
 -----------------------------------------------------
    QUERY 1: "office hours"
-   Improvement: Focused query processing to identify academic office hours.
+   Enhancement: Implement academic context detection for office hours queries.
 
    QUERY 2: "apple"
-   Improvement: Incorporated disambiguation to distinguish between the fruit and the tech company.
+   Enhancement: Add entity disambiguation to distinguish between fruit and technology company.
 
    QUERY 3: "science"
-   Improvement: Prioritized more specific fields like "earth science" or "biological sciences."
+   Enhancement: Prioritize specific scientific disciplines like "earth science" or "biological sciences."
 
    QUERY 4: "undergraduate informatics course"
-   Improvement: Narrowed down a specific division of classes in the School of ICS (Informatics) to display more specific results.
+   Enhancement: Narrow scope to specific academic divisions within the School of ICS.
 
    QUERY 5: "graduate informatics courses"
-   Improvement: Narrowed down a specific division (Informatics) to get more specific results.
+   Enhancement: Focus on specific academic divisions for more targeted results.
 
    QUERY 6: "informatics faculty profiles"
-   Improvement: Adding "profiles" allowed us to get links showing a list of all Informatics faculty and professors.
+   Enhancement: Adding "profiles" keyword improves faculty directory discovery.
 
    QUERY 7: "human-computer interaction"
-   Improvement: Added a hyphen "-" to ensure tokenization works with dashes.
+   Enhancement: Ensure proper tokenization of hyphenated terms.
 
    QUERY 8: "cybersecurity at UCI"
-   Improvement: Choosing "cybersecurity" was a good specific word to land on an Informatics article about UCI's future in cybersecurity.
+   Enhancement: Use specific terminology for institutional content discovery.
 
    QUERY 9: "user experience design UCI"
-   Improvement: Changed "UX" to "user experience" to have more relevant results related to user experience.
+   Enhancement: Expand abbreviations like "UX" to "user experience" for better matching.
 
    QUERY 10: "informatics career services"
-   Improvement: Adding "career" in the query allowed us to gain more relevant programs and examples of how the School of ICS can help students.
-
-
+   Enhancement: Include "career" keyword to access relevant program information. 
